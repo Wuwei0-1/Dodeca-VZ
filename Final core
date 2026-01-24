@@ -1,0 +1,93 @@
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import numpy as np
+import time
+import sys
+
+# IMPORT ARCHITECTURE
+from Titan_Neural_Architecture import TitanBrain
+
+# --- CONFIGURATION ---
+EPOCHS = 1000
+LEARNING_RATE = 0.001
+SAVE_FILE = "titan_motor_cortex.pth"
+
+# --- 1. SETUP ---
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+titan = TitanBrain().to(device)
+criterion = nn.MSELoss()
+optimizer = optim.Adam(titan.parameters(), lr=LEARNING_RATE)
+
+def generate_data(batch_size=32):
+    # Random chaos inputs
+    inputs = torch.randn(batch_size, 10, 8).to(device)
+    # Target: Oppose the tilt (First 4 values)
+    targets = -inputs[:, -1, :4]
+    return inputs, targets
+
+# --- 2. TRAIN & CRYSTALLIZE ---
+print("--- INITIATING NEURAL CRYSTALLIZATION ---")
+print("Training new cortex...")
+
+for epoch in range(EPOCHS):
+    inputs, targets = generate_data()
+    optimizer.zero_grad()
+    outputs, _ = titan(inputs, None)
+    loss = criterion(outputs, targets)
+    loss.backward()
+    optimizer.step()
+    
+    if epoch % 200 == 0:
+        # Visual progress bar
+        sys.stdout.write(f"Learning... [Error: {loss.item():.4f}]\r")
+        sys.stdout.flush()
+
+print(f"\n\nTRAINING COMPLETE. Final Error: {loss.item():.5f}")
+
+# --- 3. SAVE THE SOUL ---
+print(f"SAVING MODEL TO DISK -> '{SAVE_FILE}'...")
+torch.save(titan.state_dict(), SAVE_FILE)
+print("SUCCESS. The Titan's reflexes are now permanent.")
+
+# --- 4. PLAY MODE (INFERENCE) ---
+print("\n" + "="*40)
+print("       TITAN LIVE DIAGNOSTIC TOOL       ")
+print("="*40)
+print("Enter a 'Tilt' value to push the Titan.")
+print("Examples: 0.5 (Right), -0.5 (Left), 2.0 (Massive Shove)")
+print("Type 'exit' to quit.")
+
+titan.eval() # Switch to "Action Mode" (Stop learning, start doing)
+
+while True:
+    try:
+        user_in = input("\n[PUSH THE TITAN] Enter Tilt > ")
+        if user_in.lower() in ['exit', 'quit']: break
+        
+        # Parse Input
+        tilt = float(user_in)
+        
+        # Create a sensory packet (1 batch, 10 time steps, 8 sensors)
+        # We assume the tilt is happening right now
+        packet = torch.zeros(1, 10, 8).to(device)
+        packet[:, :, 0] = tilt # Set X-Tilt sensor
+        
+        # Ask the Brain
+        with torch.no_grad():
+            action, _ = titan(packet)
+            
+        # Read Motor Output (X-Axis Motor)
+        response = action[0][0].item()
+        
+        # Visual Feedback
+        print(f"   > Input Tilt: {tilt}")
+        print(f"   > Motor Force: {response:.4f}")
+        
+        if abs(response + tilt) < 0.2:
+            print("   > STATUS: STABLE (Perfect Counter-Balance)")
+        else:
+            print("   > STATUS: WOBBLING (Force Insufficient)")
+            
+    except ValueError:
+        print("Please enter a number.")
