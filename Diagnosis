@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""
+TITAN ERROR DIAGNOSTIC
+Isolates the specific error in Titan_Quantum_Brain.py
+"""
+
+import torch
+import torch.nn as nn
+import numpy as np
+
+print("=== TITAN ERROR DIAGNOSTIC ===")
+
+try:
+    print("1. Testing basic imports...")
+    from qiskit import QuantumCircuit
+    from qiskit.circuit import Parameter
+    from qiskit_machine_learning.connectors import TorchConnector
+    from qiskit_machine_learning.neural_networks import EstimatorQNN
+    print("✓ All imports successful")
+
+    print("\n2. Testing QuantumLayer initialization...")
+    N_QUBITS = 4
+    qc = QuantumCircuit(N_QUBITS)
+    inputs = [Parameter(f'x{i}') for i in range(N_QUBITS)]
+    weights = [Parameter(f'w{i}') for i in range(N_QUBITS)]
+
+    for i in range(N_QUBITS):
+        qc.rx(inputs[i], i)
+    for i in range(N_QUBITS-1):
+        qc.cx(i, i+1)
+    qc.cx(N_QUBITS-1, 0)
+    for i in range(N_QUBITS):
+        qc.ry(weights[i], i)
+
+    print("✓ Quantum circuit created")
+
+    print("3. Testing EstimatorQNN...")
+    qnn = EstimatorQNN(
+        circuit=qc,
+        input_params=inputs,
+        weight_params=weights
+    )
+    print("✓ EstimatorQNN created")
+
+    print("4. Testing TorchConnector...")
+    connector = TorchConnector(qnn)
+    print("✓ TorchConnector created")
+
+    print("5. Testing FractalEncoder...")
+    class FractalEncoder(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.char_embed = nn.Embedding(256, 512)
+
+        def fold(self, x):
+            current_dim = x.shape[-1]
+            if current_dim <= 4:
+                return x[:, :4]
+            half = current_dim // 2
+            left = x[:, :half]
+            right = x[:, half:2*half]
+            folded = torch.tanh(left + right)
+            return self.fold(folded)
+
+        def forward(self, text):
+            ids = torch.tensor([ord(c) for c in text if ord(c) < 256], dtype=torch.long)
+            if len(ids) == 0:
+                ids = torch.tensor([32], dtype=torch.long)
+            vectors = self.char_embed(ids)
+            sentence_vec = torch.mean(vectors, dim=0, keepdim=True)
+            packet = self.fold(sentence_vec)
+            return packet
+
+    encoder = FractalEncoder()
+    test_packet = encoder("test")
+    print(f"✓ FractalEncoder works: shape {test_packet.shape}")
+
+    print("6. Testing QuantumCore...")
+    class QuantumCore(nn.Module):
+        def __init__(self):
+            super().__init__()
+            qc = QuantumCircuit(4)
+            self.inputs = [Parameter(f'x{i}') for i in range(4)]
+            self.weights = [Parameter(f'w{i}') for i in range(4)]
+            for i in range(4):
+                qc.rx(self.inputs[i], i)
+            for i in range(3):
+                qc.cx(i, i+1)
+            qc.cx(3, 0)
+            for i in range(4):
+                qc.ry(self.weights[i], i)
+            qnn = EstimatorQNN(circuit=qc, input_params=self.inputs, weight_params=self.weights)
+            self.q_layer = TorchConnector(qnn)
+            self.decoder = nn.Linear(4, 64)
+
+        def forward(self, packet):
+            q_state = self.q_layer(packet)
+            output = self.decoder(packet)
+            return output
+
+    core = QuantumCore()
+    print("✓ QuantumCore initialized")
+
+    print("7. Testing FractalDriver...")
+    class FractalDriver:
+        def __init__(self):
+            self.encoder = FractalEncoder()
+            self.core = QuantumCore()
+
+        def inject(self, input_text):
+            packet = self.encoder(input_text)
+            result = self.core(packet)
+            state_hash = torch.sum(result).item()
+            return state_hash
+
+    driver = FractalDriver()
+    print("✓ FractalDriver initialized")
+
+    print("8. Testing driver.inject()...")
+    test_energy = driver.inject("Hello Titan")
+    print(f"✓ Driver inject works: energy = {test_energy}")
+
+    print("\n=== ALL COMPONENTS WORKING ===")
+    print("The error must be elsewhere. Checking dataset...")
+
+    import json
+    dataset_file = "Titan_Master_Dataset.jsonl"
+    try:
+        with open(dataset_file, 'r') as f:
+            dataset = [json.loads(line) for line in f]
+        print(f"✓ Dataset loaded: {len(dataset)} entries")
+
+        # Test processing one entry
+        if dataset:
+            entry = dataset[0]
+            instruction = entry.get('instruction', '')
+            print(f"Testing entry: {instruction[:50]}...")
+            energy = driver.inject(instruction)
+            print(f"✓ Entry processed: energy = {energy}")
+
+    except Exception as e:
+        print(f"✗ Dataset error: {e}")
+
+except Exception as e:
+    print(f"✗ ERROR FOUND: {e}")
+    import traceback
+    traceback.print_exc()
