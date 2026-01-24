@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""
+TITAN ERROR DIAGNOSTIC - Step by Step
+"""
+
+print("=== TITAN ERROR DIAGNOSTIC ===")
+
+# Step 1: Test basic imports
+print("1. Testing basic imports...")
+try:
+    import torch
+    import torch.nn as nn
+    import numpy as np
+    print("✓ PyTorch imports OK")
+except Exception as e:
+    print(f"✗ PyTorch import failed: {e}")
+    exit(1)
+
+# Step 2: Test Qiskit imports
+print("2. Testing Qiskit imports...")
+try:
+    from qiskit import QuantumCircuit
+    from qiskit.circuit import Parameter
+    from qiskit_machine_learning.connectors import TorchConnector
+    from qiskit_machine_learning.neural_networks import EstimatorQNN
+    print("✓ Qiskit imports OK")
+except Exception as e:
+    print(f"✗ Qiskit import failed: {e}")
+    import traceback
+    traceback.print_exc()
+    exit(1)
+
+# Step 3: Test quantum circuit creation
+print("3. Testing quantum circuit creation...")
+try:
+    qc = QuantumCircuit(4)
+    inputs = [Parameter(f'x{i}') for i in range(4)]
+    weights = [Parameter(f'w{i}') for i in range(4)]
+
+    for i in range(4):
+        qc.rx(inputs[i], i)
+    for i in range(3):
+        qc.cx(i, i+1)
+    qc.cx(3, 0)
+    for i in range(4):
+        qc.ry(weights[i], i)
+
+    print("✓ Quantum circuit created")
+except Exception as e:
+    print(f"✗ Quantum circuit creation failed: {e}")
+    import traceback
+    traceback.print_exc()
+    exit(1)
+
+# Step 4: Test EstimatorQNN creation
+print("4. Testing EstimatorQNN creation...")
+try:
+    qnn = EstimatorQNN(
+        circuit=qc,
+        input_params=inputs,
+        weight_params=weights
+    )
+    print("✓ EstimatorQNN created")
+except Exception as e:
+    print(f"✗ EstimatorQNN creation failed: {e}")
+    import traceback
+    traceback.print_exc()
+    exit(1)
+
+# Step 5: Test TorchConnector
+print("5. Testing TorchConnector...")
+try:
+    connector = TorchConnector(qnn)
+    print("✓ TorchConnector created")
+except Exception as e:
+    print(f"✗ TorchConnector creation failed: {e}")
+    import traceback
+    traceback.print_exc()
+    exit(1)
+
+# Step 6: Test forward pass
+print("6. Testing forward pass...")
+try:
+    test_input = torch.randn(1, 4)
+    output = connector(test_input)
+    print(f"✓ Forward pass successful: input shape {test_input.shape}, output shape {output.shape}")
+except Exception as e:
+    print(f"✗ Forward pass failed: {e}")
+    import traceback
+    traceback.print_exc()
+    exit(1)
+
+print("\n=== ALL TESTS PASSED ===")
+print("The quantum components are working correctly.")
+print("The error must be elsewhere in the script.")
