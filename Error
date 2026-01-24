@@ -1,0 +1,88 @@
+#!/usr/bin/env python3
+"""
+TITAN ERROR ISOLATION
+Testing the specific issue with dataset processing
+"""
+
+import torch
+import torch.nn as nn
+import json
+
+print("=== TESTING DATASET PROCESSING ===")
+
+# Load dataset
+dataset_file = "Titan_Master_Dataset.jsonl"
+try:
+    with open(dataset_file, 'r') as f:
+        dataset = [json.loads(line) for line in f]
+    print(f"✓ Dataset loaded: {len(dataset)} entries")
+except Exception as e:
+    print(f"✗ Dataset loading failed: {e}")
+    exit(1)
+
+# Test FractalEncoder with simple text first
+class FractalEncoder(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.char_embed = nn.Embedding(256, 512)
+
+    def fold(self, x):
+        current_dim = x.shape[-1]
+        if current_dim <= 4:
+            return x[:, :4]
+        half = current_dim // 2
+        left = x[:, :half]
+        right = x[:, half:2*half]
+        folded = torch.tanh(left + right)
+        return self.fold(folded)
+
+    def forward(self, text):
+        ids = torch.tensor([ord(c) for c in text if ord(c) < 256], dtype=torch.long)
+        if len(ids) == 0:
+            ids = torch.tensor([32], dtype=torch.long)
+        vectors = self.char_embed(ids)
+        sentence_vec = torch.mean(vectors, dim=0, keepdim=True)
+        packet = self.fold(sentence_vec)
+        return packet
+
+encoder = FractalEncoder()
+
+# Test with simple text
+print("\n1. Testing with simple text...")
+try:
+    packet = encoder("Hello World")
+    print(f"✓ Simple text works: shape {packet.shape}")
+except Exception as e:
+    print(f"✗ Simple text failed: {e}")
+
+# Test with first dataset entry
+print("\n2. Testing with dataset entry...")
+entry = dataset[0]
+instruction = entry.get('instruction', '')
+print(f"Instruction length: {len(instruction)}")
+print(f"First 100 chars: {repr(instruction[:100])}")
+
+try:
+    packet = encoder(instruction)
+    print(f"✓ Dataset entry works: shape {packet.shape}")
+except Exception as e:
+    print(f"✗ Dataset entry failed: {e}")
+    import traceback
+    traceback.print_exc()
+
+# Test filtering problematic characters
+print("\n3. Testing with filtered text...")
+filtered_instruction = ''.join(c for c in instruction if ord(c) < 128)  # Only ASCII
+print(f"Filtered length: {len(filtered_instruction)}")
+print(f"First 100 chars: {repr(filtered_instruction[:100])}")
+
+try:
+    packet = encoder(filtered_instruction)
+    print(f"✓ Filtered text works: shape {packet.shape}")
+except Exception as e:
+    print(f"✗ Filtered text failed: {e}")
+
+print("\n=== CONCLUSION ===")
+print("The issue is likely with Unicode characters in the dataset.")
+print("The FractalEncoder filters out non-ASCII chars, but some remaining")
+print("characters may still cause issues in quantum processing.")
