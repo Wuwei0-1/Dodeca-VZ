@@ -1,0 +1,3 @@
+{"instruction":"Stabilize the training loop and keep the model aligned with the control objective.","response":"The controller should remain stable and respond to drift with a corrective action."}
+{"instruction":"Reduce the sensor noise while preserving the sensitive motion cues in the packet.","response":"Low-noise aggregation should keep the signal responsive without amplifying jitter."}
+{"instruction":"Balance the quantum estimate with the learned coefficients so the neural output remains consistent.","response":"A stable weighting strategy prevents direction errors and keeps the trajectory well controlled."}

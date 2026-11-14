@@ -11,14 +11,15 @@ import json
 print("=== TESTING DATASET PROCESSING ===")
 
 # Load dataset
+
 dataset_file = "Titan_Master_Dataset.jsonl"
 try:
-    with open(dataset_file, 'r') as f:
-        dataset = [json.loads(line) for line in f]
+    with open(dataset_file, "r", encoding="utf-8") as f:
+        dataset = [json.loads(line) for line in f if line.strip()]
     print(f"✓ Dataset loaded: {len(dataset)} entries")
 except Exception as e:
     print(f"✗ Dataset loading failed: {e}")
-    exit(1)
+    raise
 
 # Test FractalEncoder with simple text first
 class FractalEncoder(nn.Module):
@@ -32,12 +33,15 @@ class FractalEncoder(nn.Module):
             return x[:, :4]
         half = current_dim // 2
         left = x[:, :half]
-        right = x[:, half:2*half]
+        right = x[:, half:2 * half]
         folded = torch.tanh(left + right)
         return self.fold(folded)
 
     def forward(self, text):
-        ids = torch.tensor([ord(c) for c in text if ord(c) < 256], dtype=torch.long)
+        if isinstance(text, str):
+            ids = torch.tensor([ord(c) for c in text if ord(c) < 256], dtype=torch.long)
+        else:
+            ids = torch.tensor(list(text), dtype=torch.long)
         if len(ids) == 0:
             ids = torch.tensor([32], dtype=torch.long)
         vectors = self.char_embed(ids)
@@ -58,7 +62,7 @@ except Exception as e:
 # Test with first dataset entry
 print("\n2. Testing with dataset entry...")
 entry = dataset[0]
-instruction = entry.get('instruction', '')
+instruction = entry.get("instruction", "")
 print(f"Instruction length: {len(instruction)}")
 print(f"First 100 chars: {repr(instruction[:100])}")
 
@@ -72,7 +76,7 @@ except Exception as e:
 
 # Test filtering problematic characters
 print("\n3. Testing with filtered text...")
-filtered_instruction = ''.join(c for c in instruction if ord(c) < 128)  # Only ASCII
+filtered_instruction = "".join(c for c in instruction if ord(c) < 128)
 print(f"Filtered length: {len(filtered_instruction)}")
 print(f"First 100 chars: {repr(filtered_instruction[:100])}")
 
